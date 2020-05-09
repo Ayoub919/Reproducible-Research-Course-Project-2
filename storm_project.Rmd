@@ -1,0 +1,124 @@
+#Synopsis
+'This is the Course Project 2 of Reproductible Research involves exploring the U.S. National Oceanic and Atmospheric Administrations (NOAA) storm database. 
+This database tracks characteristics of major storms and weather events in the United States, 
+including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+Storms and other severe weather events can cause both public health and economic problems 
+for communities and municipalities. Many severe events can result in fatalities, injuries, 
+and property damage, and preventing such outcomes to the extent possible is a key concern.
+The events in the database start in the year 1950 and end in November 2011. In the earlier years of the database 
+there are generally fewer events recorded, most likely due to a lack of good records. 
+More recent years should be considered more complete.
+'
+
+#1  Data Processing
+# Loading required libraries.
+library(plyr) 
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+
+# Load the data 
+# Analyse quickly the data
+
+setwd("~/Ayoub/COURSERA/repro_research_2")
+data <- read.csv(bzfile("repdata_data_StormData.csv.bz2"),header = TRUE)
+dim(data)
+str(data)
+summary(data)
+
+#extract data for question 1 ondd question 2 
+
+storm_data <- data[, c("BGN_DATE", "EVTYPE", "FATALITIES", "INJURIES", 
+                                         "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")]
+
+# Question1 Across the United States, which types of events 
+#(as indicated in the EVTYP variable) are most harmful with respect to population health?
+
+data_1 <- subset(storm_data, !storm_data$FATALITIES == 0 & !storm_data$INJURIES == 
+                   0, select = c(EVTYPE, FATALITIES, INJURIES))
+
+# Create separate data set for Fatalities reorder them  and give columns name 
+
+data_1_Death <- aggregate(data_1$FATALITIES, by = list(data_1$EVTYPE), FUN = sum)
+colnames(data_1_Death) <- c("EVENTTYPE", "FATALITIES")
+data_1_Death <- data_1_Death[order(data_1_Death$FATALITIES, decreasing = TRUE), ][1:10, ]
+
+
+# Create separate data set for Injury reorder them  and give columns name 
+
+data_1_Injury <- aggregate(data_1$INJURIES, by = list(data_1$EVTYPE),  FUN = sum)
+colnames(data_1_Injury) <- c("EVENTTYPE", "INJURIES")
+data_1_Injury <- data_1_Injury[order(data_1_Injury$INJURIES, decreasing = TRUE), ][1:10, ]
+
+#Result 1 
+
+# top 10 events for fatalities and injuries
+
+# Plot fatalities
+Data1_plot1 <- ggplot() + geom_bar(data = data_1_Death, aes(x = EVENTTYPE, 
+                                                                y = FATALITIES, fill = interaction(FATALITIES, EVENTTYPE)), stat = "identity", 
+                                  show.legend = F) + theme(axis.text.x = element_text(angle = 30, hjust = 1)) + 
+  xlab("Harmful Events") + ylab("No. of fatailities") + ggtitle("Top 10 weather events causing fatalities") + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+# Plot injuries 
+Data1_plot2 <- ggplot() + geom_bar(data = data_1_Injury, aes(x = EVENTTYPE, y = INJURIES, 
+                                                            fill = interaction(INJURIES, EVENTTYPE)), stat = "identity", show.legend = F) + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) + xlab("Harmful Events") + 
+  ylab("No. of Injuries") + ggtitle("Top 10 weather events causing Injuries") + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+# validate the result
+Data1_plot1
+Data1_plot2
+# We can see tornado is the major cause for fatalities and injuries
+
+# Question2 Across the United States, which types of events have the greatest economic consequences?
+
+#prepare the data for the economic impact
+data_2 <- subset(storm_data, !storm_data$PROPDMG == 0 & !storm_data$CROPDMG == 
+                   0, select = c(EVTYPE, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP))
+
+data_2 <- subset(data_2, data_2$PROPDMGEXP == "K" | data_2$PROPDMGEXP == 
+                          "k" | data_2$PROPDMGEXP == "M" | data_2$PROPDMGEXP == "m" | 
+                   data_2$PROPDMGEXP == "B" | data_2$PROPDMGEXP == "b")
+
+data_2 <- subset(data_2, data_2$CROPDMGEXP == "K" | data_2$CROPDMGEXP == 
+                          "k" | data_2$CROPDMGEXP == "M" | data_2$CROPDMGEXP == "m" | 
+                   data_2$CROPDMGEXP == "B" | data_2$CROPDMGEXP == "b")
+
+data_2$PROPDMGEXP <- gsub("m", 1e+06, data_2$PROPDMGEXP, ignore.case = TRUE)
+data_2$PROPDMGEXP <- gsub("k", 1000, data_2$PROPDMGEXP, ignore.case = TRUE)
+data_2$PROPDMGEXP <- gsub("b", 1e+09, data_2$PROPDMGEXP, ignore.case = TRUE)
+data_2$PROPDMGEXP <- as.numeric(data_2$PROPDMGEXP)
+data_2$CROPDMGEXP <- gsub("m", 1e+06, data_2$CROPDMGEXP, ignore.case = TRUE)
+data_2$CROPDMGEXP <- gsub("k", 1000, data_2$CROPDMGEXP, ignore.case = TRUE)
+data_2$CROPDMGEXP <- gsub("b", 1e+09, data_2$CROPDMGEXP, ignore.case = TRUE)
+data_2$CROPDMGEXP <- as.numeric(data_2$CROPDMGEXP)
+data_2$PROPDMGEXP <- as.numeric(data_2$PROPDMGEXP)
+
+data_2$TOTALDMG <- (data_2$CROPDMG * data_2$CROPDMGEXP) + (data_2$PROPDMG * data_2$PROPDMGEXP)
+data_2 <- aggregate(data_2$TOTALDMG, by = list(data_2$EVTYPE), FUN = sum)
+colnames(data_2) <- c("EVTYPE", "TOTALDMG")
+
+
+#Result 2 
+
+# top 10 damage cost
+
+# Class the top 10 damamge cost
+data_2 <- data_2[order(data_2$TOTALDMG, decreasing = TRUE),                         ]
+data_2 <- data_2[1:10, ]
+
+# Generate the graph
+Data2_plot <-ggplot() + geom_bar(data = data_2, aes(x = EVTYPE, y = TOTALDMG, fill = interaction(TOTALDMG, 
+                    EVTYPE)), stat = "identity", show.legend = F) + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) + 
+  xlab("Event Type") + ylab("Total Damage")
+
+
+# validate the result
+Data2_plot
+
+#We can see the flood is the major cause 
